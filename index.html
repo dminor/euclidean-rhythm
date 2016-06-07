@@ -1,0 +1,126 @@
+<!DOCTYPE html5>
+<html>
+<body>
+<script src="euclidean_rhythm.js"></script>
+<script>
+  var audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  var X = 200;
+  var Y = 200;
+  var R = 180;
+  var TEMPO = 128;
+  var MUTED = true;
+  var RHYTHM = euclidean_rhythm(5, 13);
+
+  function render(rhythm, current) {
+    ctx = document.getElementById("canvas").getContext("2d");
+    ctx.clearRect(0, 0, 2*X, 2*Y);
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(X, Y, R, 0, Math.PI*2, true);
+    ctx.stroke();
+
+    coords = []
+    for (var i = 0; i < rhythm.length; i++) {
+      var angle = i*2*Math.PI/rhythm.length;
+      var x = X + Math.cos(angle - Math.PI/2)*R;
+      var y = Y + Math.sin(angle - Math.PI/2)*R;
+      coords.push([x, y]);
+    }
+
+    if (coords.length === 0) {
+      return;
+    }
+
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(coords[0][0], coords[0][1]);
+    for (var i = 1; i < rhythm.length; i++) {
+      if (rhythm[i] === 1) {
+        ctx.lineTo(coords[i][0], coords[i][1]);
+      }
+    }
+    ctx.lineTo(coords[0][0], coords[0][1]);
+    ctx.stroke();
+
+    for (var i = 0; i < rhythm.length; i++) {
+      ctx.beginPath();
+      ctx.arc(coords[i][0], coords[i][1], 10, 0, Math.PI*2, true);
+      ctx.fillStyle = "black";
+      ctx.fill();
+
+      if (i !== current) {
+        ctx.beginPath();
+        ctx.arc(coords[i][0], coords[i][1], 9, 0, Math.PI*2, true);
+        ctx.fillStyle = "white";
+        ctx.fill();
+      }
+    }
+  }
+
+  function onLoad() {
+    var req = new XMLHttpRequest();
+    req.open('GET', '132417__sajmund__percussion-clave-like-hit.wav', true);
+    req.responseType = 'arraybuffer';
+    req.onload = function() {
+      var claveBuffer;
+      audioCtx.decodeAudioData(req.response, function(buffer) {
+        claveBuffer = buffer;
+      });
+
+      var current = 0;
+
+      function update() {
+        if (RHYTHM[current] === 1 && !MUTED) {
+          audioCtx.resume();
+          var source = audioCtx.createBufferSource();
+          source.buffer = claveBuffer;
+          source.connect(audioCtx.destination);
+          source.start();
+        }
+        render(RHYTHM, current);
+        current = current + 1;
+        if (current >= RHYTHM.length) {
+          current = 0;
+        }
+        setTimeout(update, 60000/TEMPO);
+      }
+
+      update();
+    }
+
+    req.send();
+  }
+
+  function updateValues() {
+    var pulses = parseInt(document.getElementById("pulses").value);
+    var slots = parseInt(document.getElementById("slots").value);
+    var tempo = parseInt(document.getElementById("tempo").value);
+    RHYTHM = euclidean_rhythm(pulses, slots);
+    if (tempo > 0 && tempo <= 512) {
+      TEMPO = tempo;
+    }
+  }
+
+  function mute() {
+    var el = document.getElementById("mute");
+    MUTED = !MUTED;
+    if (MUTED) {
+      el.value = "unmute";
+    } else {
+      el.value = "mute";
+    }
+  }
+
+  window.addEventListener("load", onLoad, false);
+</script>
+<h1>Euclidean Rhythms</h1>
+pulses <input id="pulses" type="text" size="3" value="3">
+slots <input id="slots" type="text" size="3" value="8">
+tempo <input id="tempo" type="text" size="3" value="128">
+<input type="button" value="update" onClick="updateValues();">
+<br>
+<canvas id="canvas" width="400" height="400"></canvas>
+<br>
+<input id="mute" type="button" value="unmute" onClick="mute()">
+</body>
+</html>
